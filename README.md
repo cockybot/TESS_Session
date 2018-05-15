@@ -27,5 +27,5 @@ foreach($results as $result) {
 Query strings should conform to TESS's "Word and/or Design Mark Search (Free Form)" query design
 e.g.
 ```
-`FD > 20180501 < 20180514 and (novel or book)[GS] same (("fiction" NOT NEAR "non"))[GS] and ("4")[MD] and (LIVE)[LD] and (Trademark)[TM] and ("016" or "009")[IC]
+$yourQueryString = '`FD > 20180501 < 20180514 and (novel or book)[GS] same (("fiction" NOT NEAR "non"))[GS] and ("4")[MD] and (LIVE)[LD] and (Trademark)[TM] and ("016" or "009")[IC]'
 ```
