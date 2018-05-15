@@ -4,7 +4,7 @@
 // Searches the USPTO's Trademark Electronic Search System (TESS)
 // http://tmsearch.uspto.gov/
 // v0.1
-// copyright 2018 cockybot
+// copyright 2018 cockybot - https://twitter.com/cockybot
 
 // Requires "TagFilter" library from Barebones CMS available under MIT license
 // https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/support/tag_filter.php
