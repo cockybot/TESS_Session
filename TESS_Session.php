@@ -6,7 +6,7 @@
 // v0.1
 // copyright 2018 cockybot
 
-// Includes "TagFilter" library from Barebones CMS available under MIT license
+// Requires "TagFilter" library from Barebones CMS available under MIT license
 // https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/support/tag_filter.php
 // http://barebonescms.com/documentation/license_and_restrictions/
 
