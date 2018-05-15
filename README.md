@@ -21,7 +21,7 @@ foreach($results as $result) {
   echo $result->wordMark . "\n";
   echo $result->registrationNumber . "\n";
   echo $result->getShareableStatusLink() . "\n";
-	echo $result->getShareableDocumentLink() . "\n";
+  echo $result->getShareableDocumentLink() . "\n";
 }
 ```
 Query strings should conform to TESS's "Word and/or Design Mark Search (Free Form)" query design
