@@ -55,8 +55,8 @@ class QueryResult {
 // NOTE: On Monday through Saturday, TESS will not be available for one hour from 4:00 to 5:00AM (EST) for database update.
 class TESS_Session {
 	private $url;
-	private $state;			// must be passed as arg in GET requests - token + requestIndex + documentIndex
-	private $token;			// token identifying the session; has form: ^(\d{4}:(?:[a-z0-9]{6}|[a-z0-9]{5}))$
+	private $state;		// must be passed as arg in GET requests - token + requestIndex + documentIndex
+	private $token;		// token identifying the session; has form: ^(\d{4}:(?:[a-z0-9]{6}|[a-z0-9]{5}))$
 	private $requestIndex;	// starts at 1, increments with each new query (navigating multi-page results of a single query doesn't change it)
 	private $documentIndex; // use 1 unless navigating multipage results or selecting a result to view as detailed record
 	private $curlHandle;	// handle for cURL Session
@@ -139,9 +139,9 @@ class TESS_Session {
 			exit(1);
 		}
 		curl_setopt($ch, CURLOPT_URL, $this->url);
-		curl_setopt($ch, CURLOPT_HEADER, FALSE); 		// shouldn't need headers anymore
+		curl_setopt($ch, CURLOPT_HEADER, FALSE); 	// shouldn't need headers anymore
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE); // back to auto redirecting (useful for single page results)
-		$pageHTML = curl_exec($ch); 					// follow the redirect to main TESS page
+		$pageHTML = curl_exec($ch); 			// follow the redirect to main TESS page
 		$this->curlHandle = $ch;
 		sleep(5);
 	}
