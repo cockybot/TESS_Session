@@ -111,9 +111,8 @@ class TESS_Session {
 		// we'll have to follow some 302 redirects, but want to handle them 
 		// manually initially to capture token from location field in header
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, FALSE); 
-		// TESS doesn't seem to discrimiante based on user agent, but could fall back to: 
-		// "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Safari/604.1.38"
-		curl_setopt($ch, CURLOPT_USERAGENT, "CockyBot v1.0");
+		// TESS doesn't seem to discriminate based on user agent, we'll identify as a bot 
+		curl_setopt($ch, CURLOPT_USERAGENT, "TESS_Session_Bot v1.0");
 		// TMSearchsession cookie is required for access
 		curl_setopt($ch, CURLOPT_COOKIEJAR, '/tmp/cookies.txt');
 		curl_setopt($ch, CURLOPT_COOKIEFILE, '/tmp/cookies.txt');
