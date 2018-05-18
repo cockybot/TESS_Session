@@ -5,6 +5,8 @@ TESS_Session contains the underlying code that [CockyBot](https://twitter.com/co
 
 Specifically, it supports "Word and/or Design Mark Search (Free Form)" queries.
 
+Note: Since TESS doesn't have any free API access, TESS_Session merely scrapes pages and accesss could break without notice.
+
 Basic usage:
 ```php
 $session = new TESS_Session();
@@ -29,3 +31,4 @@ e.g.
 ```php
 $yourQueryString = '`FD > 20180501 < 20180514 and (novel or book)[GS] same (("fiction" NOT NEAR "non"))[GS] and ("4")[MD] and (LIVE)[LD] and (Trademark)[TM] and ("016" or "009")[IC]'
 ```
+A version of TESS help that describes features and fields available in queries is mirrored here: https://cockybot.com/TESS_Help.html
