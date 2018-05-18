@@ -11,7 +11,7 @@
 // http://barebonescms.com/documentation/license_and_restrictions/
 
 require_once "./tag_filter.php";
-define("DEBUG", "1");             // set to "0" to disable extra logging
+define("TESS_SESSION_DEBUG", "1");             // set to "0" to disable extra logging
 define("HTML_DUMP_LENGTH", "80"); // num characters of html responses to dump in debug
 
 // QueryResult – corresponds to a single trademark application result returned from search
@@ -38,15 +38,15 @@ class QueryResult {
 	}
 	
 	// returns a url used to view the current status of the application
-	// e.g. http://tsdr.uspto.gov/#caseNumber=87604348&caseType=SERIAL_NO&searchType=statusSearch
+	// e.g. https://tsdr.uspto.gov/#caseNumber=87604348&caseType=SERIAL_NO&searchType=statusSearch
 	public function getShareableStatusLink() {
-		return "http://tsdr.uspto.gov/#caseNumber=" . $this->serialNumber . "&caseType=SERIAL_NO&searchType=statusSearch";
+		return "https://tsdr.uspto.gov/#caseNumber=" . $this->serialNumber . "&caseType=SERIAL_NO&searchType=statusSearch";
 	}
 	
 	// returns a url used to view all documents filed with respect to the application
-	// e.g. http://tsdr.uspto.gov/documentviewer?caseId=sn87604348
+	// e.g. https://tsdr.uspto.gov/documentviewer?caseId=sn87604348
 	public function getShareableDocumentLink() {
-		return "http://tsdr.uspto.gov/documentviewer?caseId=sn" . $this->serialNumber;
+		return "https://tsdr.uspto.gov/documentviewer?caseId=sn" . $this->serialNumber;
 	}	
 }
 
@@ -85,7 +85,7 @@ class TESS_Session {
 		$ch = $this->curlHandle;
 		curl_setopt($ch, CURLOPT_URL, "http://tmsearch.uspto.gov/bin/gate.exe?f=logout&a_logout=Logout&state=" . $this->state);
 		$pageHTML = curl_exec($ch);
-		if(DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
+		if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
 		curl_close($ch);
 		$this->url = self::START_URL;
 	}
@@ -121,14 +121,14 @@ class TESS_Session {
 		if (preg_match('/^Location: (.+)$/im', $headers, $matches)) {
 			$location = trim($matches[1]);
 			$this->url = $location;
-			if(DEBUG == 1) var_dump($location);
+			if(TESS_SESSION_DEBUG == 1) var_dump($location);
 			// get the state argument, and break it into components
 			if(preg_match('/.*&state=(.*)\.(\d+)\.(\d+)$/', $location, $matches)) {
 				$this->token = trim($matches[1]);
 				$this->requestIndex = intval($matches[2]);
 				$this->documentIndex = intval($matches[3]);
 				self::recalculateState();
-				if(DEBUG == 1) var_dump($this->state);
+				if(TESS_SESSION_DEBUG == 1) var_dump($this->state);
 			} else {
 				error_log("Couldn't find valid session token in response header");
 				exit(2);
@@ -150,7 +150,7 @@ class TESS_Session {
 	// $query - a query string conforming to TESS's "Word and/or Design Mark Search (Free Form)"
 	// return: array of QueryResult objects, one for each item found, empty if none found
 	public function getQueryResults($query) {
-		if(DEBUG == 1) echo "******\nStarting query: " . $query . "\n";
+		if(TESS_SESSION_DEBUG == 1) echo "******\nStarting query: " . $query . "\n";
 		if($this->url === self::START_URL) {
 			self::logIn();
 		}
@@ -163,10 +163,10 @@ class TESS_Session {
 		$base_q_string = "?f=toc&p_search=search&p_s_All=&BackReference=&p_L=500&p_plural=yes&a_search=Submit+Query&p_s_ALL=";
 		$this->url = $base . $base_q_string . urlencode($query) . "&state=" . $this->state;
 		curl_setopt($ch, CURLOPT_URL, $this->url);
-		if(DEBUG == 1) var_dump($this->url);
+		if(TESS_SESSION_DEBUG == 1) var_dump($this->url);
 		$pageHTML = curl_exec($ch);
 		self::incrementRequestState();
-		if(DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
+		if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
 		$results = self::parseResults($pageHTML);
 		$num_page_results = count($results);
 		$pageCount = 1;
@@ -175,14 +175,14 @@ class TESS_Session {
 			$pageCount++;
 			$this->documentIndex += self::MAX_RESULTS_PER_PAGE;
 			self::recalculateState();
-			if(DEBUG == 1) echo "Page: " . $pageCount . "\n";
+			if(TESS_SESSION_DEBUG == 1) echo "Page: " . $pageCount . "\n";
 			// set up url for next page of results
 			$this->url = $base . "?f=toc&state=" . $this->state;
-			if(DEBUG == 1) var_dump($this->url);
+			if(TESS_SESSION_DEBUG == 1) var_dump($this->url);
 			curl_setopt($ch, CURLOPT_URL, $this->url);
 			sleep(5);
 			$pageHTML = curl_exec($ch);
-			if(DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
+			if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
 			$page_results = self::parseResults($pageHTML);
 			$num_page_results = count($page_results);
 			$results = array_merge($results, $page_results);
@@ -246,7 +246,7 @@ class TESS_Session {
 		if($results) {
 			return $results;
 		} else {
-			if(DEBUG == 1) echo "No results table found, checking if single page...\n";
+			if(TESS_SESSION_DEBUG == 1) echo "No results table found, checking if single page...\n";
 			$singlePageResult = self::parseSingleResultsPage($root);
 			if($singlePageResult) {
 				$results[] = $singlePageResult;
@@ -305,7 +305,7 @@ class TESS_Session {
 			$text = strtok(trim($heading->GetPlainText()), "\n"); //get first line of heading
 			if($text == "No TESS records were found to match the criteria of your query.") {
 				return self::TESS_ERROR_NO_RESULTS;
-			} else if(preg_match('/Invalid/', $text) == 1) {
+			} else if(preg_match('/Invalid/', $text) == 1 || $text == "!Closing Quotes Required") {
 				// should probably terminate execution so query can be fixed in calling code
 				throw new Exception('TESS query had invalid construction: ' . $text);
 				return self::TESS_ERROR_INVALID_QUERY;
