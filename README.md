@@ -24,6 +24,12 @@ foreach($results as $result) {
   echo $result->registrationNumber . "\n";
   echo $result->getShareableStatusLink() . "\n";
   echo $result->getShareableDocumentLink() . "\n";
+  echo $result->getShareableImageLink() . "\n";
+  $saveImagePath = "./images/trademark_img.png";
+  $success = $result->saveImageAsFile($imagePath);
+  if($success) {
+    echo "Trademark image saved.\n";
+  }
 }
 ```
 Query strings should conform to TESS's "Word and/or Design Mark Search (Free Form)" query design
