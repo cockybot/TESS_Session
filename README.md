@@ -26,7 +26,7 @@ foreach($results as $result) {
   echo $result->getShareableDocumentLink() . "\n";
   echo $result->getShareableImageLink() . "\n";
   $saveImagePath = "./images/trademark_img.png";
-  $success = $result->saveImageAsFile($imagePath);
+  $success = $result->saveImageAsFile($saveImagePath);
   if($success) {
     echo "Trademark image saved.\n";
   }
