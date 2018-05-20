@@ -12,7 +12,7 @@
 
 require_once "./tag_filter.php";
 define("TESS_SESSION_DEBUG", "1");             // set to "0" to disable extra logging
-define("HTML_DUMP_LENGTH", "80"); // num characters of html responses to dump in debug
+define("TESS_HTML_DUMP_LENGTH", "80"); // num characters of html responses to dump in debug
 
 class TESSException extends Exception {	
 	// define error codes
@@ -30,9 +30,9 @@ class TESSException extends Exception {
 
 // QueryResult – corresponds to a single trademark application result returned from search
 class QueryResult {
-	public $serialNumber;
-	public $registrationNumber;
-	public $wordMark;
+	public $serialNumber;  		// as string
+	public $registrationNumber; // as string
+	public $wordMark;			// as string
 	
 	// input: $rowData - array with: [$serialNumber, $registrationNumber, $wordMark]
 	public function __construct($rowData) {		
@@ -114,7 +114,7 @@ class TESS_Session {
 		curl_setopt($ch, CURLOPT_URL, $this->url);
 		$pageHTML = curl_exec($ch);
 		if(TESS_SESSION_DEBUG == 1) var_dump($this->url);
-		if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
+		if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, TESS_HTML_DUMP_LENGTH)));
 		curl_close($ch);
 		$this->url = self::START_URL;
 	}
@@ -176,7 +176,7 @@ class TESS_Session {
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE); // back to auto redirecting (useful for single page results)
 		$pageHTML = curl_exec($ch); 			// follow the redirect to main TESS page
 		$this->curlHandle = $ch;
-		sleep(WAIT_BETWEEN_REQUESTS);
+		sleep(self::WAIT_BETWEEN_REQUESTS);
 	}
 	
 	// performs a TESS "Word and/or Design Mark Search (Free Form)" query 
@@ -213,7 +213,7 @@ class TESS_Session {
 			$this->url = $base . "?f=toc&state=" . $this->state;
 			if(TESS_SESSION_DEBUG == 1) var_dump($this->state);
 			curl_setopt($ch, CURLOPT_URL, $this->url);
-			sleep(WAIT_BETWEEN_REQUESTS);
+			sleep(self::WAIT_BETWEEN_REQUESTS);
 			$pageHTML = curl_exec($ch);
 			$page_results = self::parseResultsPage($pageHTML);
 			$num_page_results = count($page_results);
@@ -227,7 +227,7 @@ class TESS_Session {
 	// $pageHTML: string with result page's HTML
 	// return: array of QueryResult objects, one for each item found, empty if none found
 	function parseResultsPage($pageHTML) {
-		if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
+		if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, TESS_HTML_DUMP_LENGTH)));
 		// parse with TagFilter: https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/docs/tag_filter.md
 		$results = [];
 		$htmloptions = TagFilter::GetHTMLOptions();
@@ -338,7 +338,7 @@ class TESS_Session {
 				self::throwPageErrorExceptions($root);
 			} else if($title == "503 Service Unavailable") {
 				error_log("May have been flagged for overuse, exiting");
-				sleep(WAIT_BETWEEN_REQUESTS);
+				sleep(self::WAIT_BETWEEN_REQUESTS);
 				self::logout();  // in case it was just temporary, still attempt a logout
 				exit(503);
 			}
@@ -357,9 +357,11 @@ class TESS_Session {
 			$text = strtok(trim($heading->GetPlainText()), "\n"); //get first line of heading
 			if($text == "No TESS records were found to match the criteria of your query.") {
 				throw new TESSException('TESS query had no results: ' . $text, TESSException::ERROR_NO_RESULTS);
-			} elseif(preg_match('/Invalid/', $text) == 1 || 
-								$text == "!Closing Quotes Required" || 
-								preg_match('/!vparm .+ not in database/', $text) == 1)
+			} elseif(
+					preg_match('/Invalid/', $text) == 1 || 
+					$text == "!Closing Quotes Required" || 
+					preg_match('/!vparm .+ not in database/', $text) == 1
+				)
 			{
 				throw new TESSException('TESS query had invalid construction: ' . $text, TESSException::ERROR_INVALID_QUERY);
 			} elseif(preg_match('/This search session has expired./', $text) == 1) {
