@@ -14,6 +14,20 @@ require_once "./tag_filter.php";
 define("TESS_SESSION_DEBUG", "1");             // set to "0" to disable extra logging
 define("HTML_DUMP_LENGTH", "80"); // num characters of html responses to dump in debug
 
+class TESSException extends Exception {	
+	// define error codes
+	const ERROR_UNKNOWN = 0;
+	const ERROR_NO_RESULTS = 1;
+	const ERROR_INVALID_QUERY = 2;
+	const ERROR_SESSION_EXPIRED = 3;
+	
+	// Redefine the exception so message and code aren't optional
+	public function __construct($message, $code, Exception $previous = null) {
+        // make sure everything is assigned properly
+        parent::__construct($message, $code, $previous);
+    }
+}
+
 // QueryResult – corresponds to a single trademark application result returned from search
 class QueryResult {
 	public $serialNumber;
@@ -78,11 +92,8 @@ class TESS_Session {
 	const START_URL = "http://tmsearch.uspto.gov/bin/gate.exe?f=login&p_lang=english&p_d=trmk";
 	const MAX_RESULTS_PER_PAGE = 500;	// this is the most TESS allows (&p_L=500)
 	const MAX_PAGES_PER_QUERY = 5;		// could set this higher, if desired, but limit of 2500 results/query should be more than enough
-	const TESS_ERROR_NO_RESULTS = 1;
-	const TESS_ERROR_INVALID_QUERY = 2;
-	const TESS_ERROR_UNKNOWN = 0;
-	const TESS_ERROR_SESSION_EXPIRED = 3;
-	
+	const WAIT_BETWEEN_REQUESTS = 5;	// seconds to wait between page requests
+
 	public function __construct() {
 		$this->url = self::START_URL;
 	}
@@ -165,7 +176,7 @@ class TESS_Session {
 		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE); // back to auto redirecting (useful for single page results)
 		$pageHTML = curl_exec($ch); 			// follow the redirect to main TESS page
 		$this->curlHandle = $ch;
-		sleep(5);
+		sleep(WAIT_BETWEEN_REQUESTS);
 	}
 	
 	// performs a TESS "Word and/or Design Mark Search (Free Form)" query 
@@ -179,6 +190,7 @@ class TESS_Session {
 		}
 		$this->documentIndex = 1;
 		self::recalculateState();
+		if(TESS_SESSION_DEBUG == 1) var_dump($this->state);
 		$ch = $this->curlHandle;
 		// set up the url for query request
 		$base = "http://tmsearch.uspto.gov/bin/gate.exe";
@@ -186,11 +198,9 @@ class TESS_Session {
 		$base_q_string = "?f=toc&p_search=search&p_s_All=&BackReference=&p_L=500&p_plural=yes&a_search=Submit+Query&p_s_ALL=";
 		$this->url = $base . $base_q_string . urlencode($query) . "&state=" . $this->state;
 		curl_setopt($ch, CURLOPT_URL, $this->url);
-		if(TESS_SESSION_DEBUG == 1) var_dump($this->state);
 		$pageHTML = curl_exec($ch);
+		$results = self::parseResultsPage($pageHTML);
 		self::incrementRequestState();
-		if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
-		$results = self::parseResults($pageHTML);
 		$num_page_results = count($results);
 		$pageCount = 1;
 		// if needed, continue on to next pages of results
@@ -203,10 +213,9 @@ class TESS_Session {
 			$this->url = $base . "?f=toc&state=" . $this->state;
 			if(TESS_SESSION_DEBUG == 1) var_dump($this->state);
 			curl_setopt($ch, CURLOPT_URL, $this->url);
-			sleep(5);
+			sleep(WAIT_BETWEEN_REQUESTS);
 			$pageHTML = curl_exec($ch);
-			if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
-			$page_results = self::parseResults($pageHTML);
+			$page_results = self::parseResultsPage($pageHTML);
 			$num_page_results = count($page_results);
 			$results = array_merge($results, $page_results);
 		}
@@ -217,7 +226,8 @@ class TESS_Session {
 	// inputs: 
 	// $pageHTML: string with result page's HTML
 	// return: array of QueryResult objects, one for each item found, empty if none found
-	function parseResults($pageHTML) {
+	function parseResultsPage($pageHTML) {
+		if(TESS_SESSION_DEBUG == 1) var_dump(trim(substr($pageHTML, 0, HTML_DUMP_LENGTH)));
 		// parse with TagFilter: https://github.com/cubiclesoft/ultimate-web-scraper/blob/master/docs/tag_filter.md
 		$results = [];
 		$htmloptions = TagFilter::GetHTMLOptions();
@@ -227,15 +237,14 @@ class TESS_Session {
 		// check if there was an error
 		try {
 			self::checkPageForErrors($root);
-		} catch (Exception $e) {
-			if($e->getCode() === self::TESS_ERROR_NO_RESULTS) {
+		} catch (TESSException $e) {
+			if($e->getCode() === TESSException::ERROR_NO_RESULTS) {
 				return $results;  // no results, so save time and return now
-			} elseif($e->getCode() === self::TESS_ERROR_UNKNOWN) {
+			} elseif($e->getCode() === TESSException::ERROR_UNKNOWN) {
 				error_log('Trying to continue after ' . $e->getMessage());
 				return $results;
 			} else {
-				// error in query - log out and kill off so it can be fixed in calling code
-				self::decrementRequestState(); //on error, doesn't increment
+				// error in query; log out and kill off so it can be fixed in calling code
 				self::logout();
 				throw $e;
 			}
@@ -270,7 +279,7 @@ class TESS_Session {
 			return $results;
 		} else {
 			if(TESS_SESSION_DEBUG == 1) echo "No results table, checking if single page...\n";
-			$singlePageResult = self::parseSingleResultsPage($root);
+			$singlePageResult = self::parseSingleRecordPage($root);
 			if($singlePageResult) {
 				$results[] = $singlePageResult;
 			}
@@ -284,7 +293,7 @@ class TESS_Session {
 	// inputs:
 	// $root - a TagFilterNode for the document root
 	// returns: single QueryResult object on successful parse, null on fail
-	function parseSingleResultsPage($root) {
+	function parseSingleRecordPage($root) {
 		$tables = $root->Find("table[border='0']");
 		$serialNumber = "";
 		$registrationNumber = "";
@@ -329,7 +338,7 @@ class TESS_Session {
 				self::throwPageErrorExceptions($root);
 			} else if($title == "503 Service Unavailable") {
 				error_log("May have been flagged for overuse, exiting");
-				sleep(5);
+				sleep(WAIT_BETWEEN_REQUESTS);
 				self::logout();  // in case it was just temporary, still attempt a logout
 				exit(503);
 			}
@@ -347,16 +356,19 @@ class TESS_Session {
 			$heading = $headings->current();
 			$text = strtok(trim($heading->GetPlainText()), "\n"); //get first line of heading
 			if($text == "No TESS records were found to match the criteria of your query.") {
-				throw new Exception('TESS query had no results: ' . $text, self::TESS_ERROR_NO_RESULTS);
-			} elseif(preg_match('/Invalid/', $text) == 1 || $text == "!Closing Quotes Required") {
-				throw new Exception('TESS query had invalid construction: ' . $text, self::TESS_ERROR_INVALID_QUERY);
+				throw new TESSException('TESS query had no results: ' . $text, TESSException::ERROR_NO_RESULTS);
+			} elseif(preg_match('/Invalid/', $text) == 1 || 
+								$text == "!Closing Quotes Required" || 
+								preg_match('/!vparm .+ not in database/', $text) == 1)
+			{
+				throw new TESSException('TESS query had invalid construction: ' . $text, TESSException::ERROR_INVALID_QUERY);
 			} elseif(preg_match('/This search session has expired./', $text) == 1) {
-				throw new Exception('TESS session expired', self::TESS_ERROR_SESSION_EXPIRED);
+				throw new TESSException('TESS session expired', TESSException::ERROR_SESSION_EXPIRED);
 			} else {
-				throw new Exception('TESS query urecognized error: ' . $text, self::TESS_ERROR_UNKNOWN);
+				throw new TESSException('TESS query urecognized error: ' . $text, TESSException::ERROR_UNKNOWN);
 			}
 		}
-		throw new Exception('TESS query urecognized error', self::TESS_ERROR_UNKNOWN);
+		throw new TESSException('TESS query urecognized error', TESSException::ERROR_UNKNOWN);
 	}
 }
 
