@@ -11,7 +11,7 @@
 // http://barebonescms.com/documentation/license_and_restrictions/
 
 require_once "./tag_filter.php";
-define("TESS_SESSION_DEBUG", "1");             // set to "0" to disable extra logging
+define("TESS_SESSION_DEBUG", "0");             // set to "0" to disable extra logging
 define("TESS_HTML_DUMP_LENGTH", "80"); // num characters of html responses to dump in debug
 
 class TESSException extends Exception {	
@@ -20,8 +20,9 @@ class TESSException extends Exception {
 	const ERROR_NO_RESULTS = 1;
 	const ERROR_INVALID_QUERY = 2;
 	const ERROR_SESSION_EXPIRED = 3;
+	const ERROR_UNAVAILABLE = 4;
 	
-	// Redefine the exception so message and code aren't optional
+	// Redefine the exception so message and code are required
 	public function __construct($message, $code, Exception $previous = null) {
         // make sure everything is assigned properly
         parent::__construct($message, $code, $previous);
@@ -245,6 +246,7 @@ class TESS_Session {
 				return $results;
 			} else {
 				// error in query; log out and kill off so it can be fixed in calling code
+				sleep(self::WAIT_BETWEEN_REQUESTS);
 				self::logout();
 				throw $e;
 			}
@@ -308,13 +310,13 @@ class TESS_Session {
 				}
 				for ($i=0; $i<count($rowData); $i++) {
 					if ($rowData[$i] == "Serial Number" && $i+1<count($rowData)) {
-						$serialNumber = $rowData[i+1];
+						$serialNumber = $rowData[$i+1];
 					}
 					if ($rowData[$i] == "Word Mark" && $i+1<count($rowData)) {
-						$wordMark = $rowData[i+1];
+						$wordMark = $rowData[$i+1];
 					}
 					if ($rowData[$i] == "Registration Number" && $i+1<count($rowData)) {
-						$registrationNumber = $rowData[i+1];
+						$registrationNumber = $rowData[$i+1];
 					}
 				}
 			}
@@ -337,10 +339,7 @@ class TESS_Session {
 			if($title == "TESS -- Error") {
 				self::throwPageErrorExceptions($root);
 			} else if($title == "503 Service Unavailable") {
-				error_log("May have been flagged for overuse, exiting");
-				sleep(self::WAIT_BETWEEN_REQUESTS);
-				self::logout();  // in case it was just temporary, still attempt a logout
-				exit(503);
+				throw new TESSException('TESS service unavailable (503)', TESSException::ERROR_UNAVAILABLE);
 			}
 		}
 	}
