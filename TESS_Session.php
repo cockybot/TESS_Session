@@ -76,7 +76,7 @@ class QueryResult {
 	// inputs: $imgPath - path of file to save image to
 	// return: number of bytes written to file, or 0 on failure
 	public function saveImageAsFile($imgPath) {
-		return file_put_contents($imgPath, file_get_contents(self::getShareableImageLink()));
+		return file_put_contents($imgPath, file_get_contents($this->getShareableImageLink()));
 	}
 }
 
@@ -104,7 +104,7 @@ class TESS_Session {
 	function __destruct() {
 		if ($this->url != self::START_URL) {
 			error_log("TESS_Session: Please manually log out before exit next time.");
-			self::logOut();
+			$this->logOut();
 		}
 	}
 	
@@ -122,12 +122,12 @@ class TESS_Session {
 	
 	private function incrementRequestState() {
 		$this->requestIndex = $this->requestIndex + 1;
-		self::recalculateState();
+		$this->recalculateState();
 	}
 	
 	private function decrementRequestState() {
 		$this->requestIndex = $this->requestIndex - 1;
-		self::recalculateState();
+		$this->recalculateState();
 	}
 	
 	// updates the state string
@@ -162,7 +162,7 @@ class TESS_Session {
 				$this->token = trim($matches[1]);
 				$this->requestIndex = intval($matches[2]);
 				$this->documentIndex = intval($matches[3]);
-				self::recalculateState();
+				$this->recalculateState();
 				if(TESS_SESSION_DEBUG == 1) var_dump($this->state);
 			} else {
 				error_log("Couldn't find valid session token in response header");
@@ -187,10 +187,10 @@ class TESS_Session {
 	public function getQueryResults($query) {
 		echo "******\nStarting query: " . $query . "\n";
 		if($this->url === self::START_URL) {
-			self::logIn();
+			$this->logIn();
 		}
 		$this->documentIndex = 1;
-		self::recalculateState();
+		$this->recalculateState();
 		if(TESS_SESSION_DEBUG == 1) var_dump($this->state);
 		$ch = $this->curlHandle;
 		// set up the url for query request
@@ -200,15 +200,15 @@ class TESS_Session {
 		$this->url = $base . $base_q_string . urlencode($query) . "&state=" . $this->state;
 		curl_setopt($ch, CURLOPT_URL, $this->url);
 		$pageHTML = curl_exec($ch);
-		$results = self::parseResultsPage($pageHTML);
-		self::incrementRequestState();
+		$results = $this->parseResultsPage($pageHTML);
+		$this->incrementRequestState();
 		$num_page_results = count($results);
 		$pageCount = 1;
 		// if needed, continue on to next pages of results
 		while($num_page_results === self::MAX_RESULTS_PER_PAGE && $pageCount < self::MAX_PAGES_PER_QUERY) {
 			$pageCount++;
 			$this->documentIndex += self::MAX_RESULTS_PER_PAGE;
-			self::recalculateState();
+			$this->recalculateState();
 			if(TESS_SESSION_DEBUG == 1) echo "Page: " . $pageCount . "\n";
 			// set up url for next page of results
 			$this->url = $base . "?f=toc&state=" . $this->state;
@@ -216,7 +216,7 @@ class TESS_Session {
 			curl_setopt($ch, CURLOPT_URL, $this->url);
 			sleep(self::WAIT_BETWEEN_REQUESTS);
 			$pageHTML = curl_exec($ch);
-			$page_results = self::parseResultsPage($pageHTML);
+			$page_results = $this->parseResultsPage($pageHTML);
 			$num_page_results = count($page_results);
 			$results = array_merge($results, $page_results);
 		}
@@ -247,7 +247,7 @@ class TESS_Session {
 			} else {
 				// error in query; log out and kill off so it can be fixed in calling code
 				sleep(self::WAIT_BETWEEN_REQUESTS);
-				self::logout();
+				$this->logout();
 				throw $e;
 			}
 		}
@@ -295,7 +295,7 @@ class TESS_Session {
 	// inputs:
 	// $root - a TagFilterNode for the document root
 	// returns: single QueryResult object on successful parse, null on fail
-	function parseSingleRecordPage($root) {
+	private static function parseSingleRecordPage($root) {
 		$tables = $root->Find("table[border='0']");
 		$serialNumber = "";
 		$registrationNumber = "";
@@ -332,7 +332,7 @@ class TESS_Session {
 	// inputs:
 	// $root - a TagFilterNode for the document root
 	// returns: int value corresponding to type of error
-	private function checkPageForErrors($root) {
+	private static function checkPageForErrors($root) {
 		$titles =  $root->Find("title");
 		foreach ($titles as $title) {
 			$title = trim($title->GetPlainText());
@@ -348,7 +348,7 @@ class TESS_Session {
 	// inputs:
 	// $root - a TagFilterNode for the document root
 	// returns: null
-	private function throwPageErrorExceptions($root) {
+	private static function throwPageErrorExceptions($root) {
 		// error messages should appear in an h1 heading, so try to get that
 		$headings = $root->Find("body > h1:first-of-type");
 		if($headings->count() > 0) {
