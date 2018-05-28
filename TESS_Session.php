@@ -39,14 +39,14 @@ class QueryResult {
 	public function __construct($rowData) {		
 		$this->serialNumber = $rowData[0];
 		$this->registrationNumber = trim($rowData[1]);
-		$this->wordMark = $rowData[2];
+		$this->wordMark = utf8_encode($rowData[2]); // TESS uses ISO-8859-1, switch to UTF-8
 	}
 	
 	// returns: true if the data is as expected, false otherwise
 	public function isValid() {
-		$validSerial = preg_match('/^\d+$/', $this->serialNumber) == 1;
+		$validSerial = preg_match('/^\d{8}$/', $this->serialNumber) == 1;
 		$validWord = trim($this->wordMark) != "";
-		$validReg = (preg_match('/^\d+$/', $this->registrationNumber) == 1 || trim($this->registrationNumber) == "");
+		$validReg = (preg_match('/^\d{5,7}$/', $this->registrationNumber) == 1 || trim($this->registrationNumber) == "");
 		if($validSerial && $validWord && $validReg)
 			return true;
 		return false;
