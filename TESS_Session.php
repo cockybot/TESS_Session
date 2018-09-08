@@ -34,12 +34,14 @@ class QueryResult {
 	public $serialNumber;  		// as string
 	public $registrationNumber; // as string
 	public $wordMark;			// as string
+	public $liveOrDead; //as string
 	
 	// input: $rowData - array with: [$serialNumber, $registrationNumber, $wordMark]
 	public function __construct($rowData) {		
 		$this->serialNumber = $rowData[0];
 		$this->registrationNumber = trim($rowData[1]);
 		$this->wordMark = utf8_encode($rowData[2]); // TESS uses ISO-8859-1, switch to UTF-8
+		$this->liveOrDead = trim($rowData[3]); 
 	}
 	
 	// returns: true if the data is as expected, false otherwise
@@ -47,7 +49,8 @@ class QueryResult {
 		$validSerial = preg_match('/^\d{8}$/', $this->serialNumber) == 1;
 		$validWord = trim($this->wordMark) != "";
 		$validReg = (preg_match('/^\d{5,7}$/', $this->registrationNumber) == 1 || trim($this->registrationNumber) == "");
-		if($validSerial && $validWord && $validReg)
+		$validLiveOrDead = in_array($this->liveOrDead,['DEAD','LIVE']);
+		if($validSerial && $validWord && $validReg && $validLiveOrDead)
 			return true;
 		return false;
 	}
@@ -271,7 +274,14 @@ class TESS_Session {
 					$rowData[] = $cell->GetPlainText();
 				}
 				if(count($rowData) == 6) {
-					$result = new QueryResult(array_slice($rowData,1,3));
+
+					$serialNumber = $rowData[1];
+					$registrationNumber = $rowData[2];
+					$wordMark = $rowData[3];
+					$alwaysTSDR = $rowData[4]; //this will always be TSDR
+					$liveOrDead = $rowData[5];		
+
+					$result = new QueryResult([$serialNumber, $registrationNumber, $wordMark, $liveOrDead]);
 					if($result->isValid())
 						$results[] = $result;
 				}
@@ -300,6 +310,7 @@ class TESS_Session {
 		$serialNumber = "";
 		$registrationNumber = "";
 		$wordMark = "";
+		$liveOrDead = "";
 		foreach ($tables as $table) {
 			$rows = $table->Find("tr");
 			foreach ($rows as $row) {
@@ -318,10 +329,13 @@ class TESS_Session {
 					if ($rowData[$i] == "Registration Number" && $i+1<count($rowData)) {
 						$registrationNumber = $rowData[$i+1];
 					}
+					if ($rowData[$i] == "Live/Dead Indicator" && $i+1<count($rowData)) {
+						$liveOrDead = $rowData[$i+1];
+					}
 				}
 			}
 		}
-		$result = new QueryResult([$serialNumber, $registrationNumber, $wordMark]);
+		$result = new QueryResult([$serialNumber, $registrationNumber, $wordMark, $liveOrDead]);
 		if($result->isValid()) {
 			return $result;
 		} 
